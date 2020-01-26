@@ -8,6 +8,9 @@
 #include "PasswdMgr.h"
 #include "FileDesc.h"
 #include "strfuncts.h"
+#include <random>
+#include <cstdlib>
+#include <ctime>
 
 const int hashlen = 32;
 const int saltlen = 16;
@@ -103,8 +106,14 @@ bool PasswdMgr::changePasswd(const char *name, const char *passwd) {
 
 bool PasswdMgr::readUser(FileFD &pwfile, std::string &name, std::vector<uint8_t> &hash, std::vector<uint8_t> &salt)
 {
-   // Insert your perfect code here!
-
+   ssize_t eof_check;
+   //Readline from the pwfile and write the value into the &name variable
+   //Should return 0 if it read EOF
+   if (!pwfile.readStr(name)) {
+      return false;
+   }
+   pwfile.readBytes(hash, hashlen);
+   pwfile.readBytes(salt, saltlen);
    return true;
 }
 
@@ -125,7 +134,21 @@ int PasswdMgr::writeUser(FileFD &pwfile, std::string &name, std::vector<uint8_t>
 {
    int results = 0;
 
-   // Insert your wild code here!
+   //Append a newline and write the name to the file
+   name += '\n';
+   pwfile.writeFD(name);
+   results += sizeof(name);
+
+   //Write the hash and salt to the file
+   pwfile.writeBytes<uint8_t>(hash);
+   results += sizeof(hash);
+   
+   pwfile.writeBytes<uint8_t>(salt);
+   results += sizeof(salt);
+
+   //Add a terminating newline
+   pwfile.writeFD("\n");
+   results += 1;
 
    return results; 
 }
@@ -145,11 +168,9 @@ int PasswdMgr::writeUser(FileFD &pwfile, std::string &name, std::vector<uint8_t>
  *****************************************************************************************************/
 
 bool PasswdMgr::findUser(const char *name, std::vector<uint8_t> &hash, std::vector<uint8_t> &salt) {
-
    FileFD pwfile(_pwd_file.c_str());
 
    // You may need to change this code for your specific implementation
-
    if (!pwfile.openFile(FileFD::readfd))
       throw pwfile_error("Could not open passwd file for reading");
 
@@ -189,6 +210,17 @@ void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> 
                            const char *in_passwd, std::vector<uint8_t> *in_salt) {
    // Hash those passwords!!!!
 
+    uint8_t *passwd = (uint8_t *)strdup(in_passwd);
+    uint32_t pwdlen = strlen((char *)passwd);
+
+    uint32_t t_cost = 2;            // 1-pass computation
+    uint32_t m_cost = (1<<16);      // 64 mebibytes memory usage
+    uint32_t parallelism = 1;       // number of threads and lanes
+
+    // high-level API
+    argon2i_hash_raw(t_cost, m_cost, parallelism, passwd, pwdlen, in_salt, saltlen, &ret_hash, hashlen);
+    free(passwd);
+
 }
 
 /****************************************************************************************************
@@ -199,6 +231,53 @@ void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> 
  ****************************************************************************************************/
 
 void PasswdMgr::addUser(const char *name, const char *passwd) {
-   // Add those users!
+   //Need to generate an entry in the passwd file using a randomly generated 16byte hash and the provided username/passwd
+   std::vector<uint8_t> passhash; // hash derived from the parameter passwd
+   std::vector<uint8_t> salt;
+
+   //Generate Salt
+   generateSalt(salt);
+
+   //Hash the salt + password
+   hashArgon2(passhash, salt, passwd, &salt);
+
+   //Open the password file
+   FileFD pwfile(_pwd_file.c_str());
+   if (!pwfile.openFile(FileFD::readfd))
+      throw pwfile_error("Could not open passwd file for reading");
+
+   //Call writeUser function to write new entry to the openfile
+   std::string stringName = name;
+   for (auto i = passhash.begin(); i != passhash.end(); ++i)
+      std::cout << *i;
+   writeUser(pwfile, stringName, passhash, salt);
+
 }
+
+uint8_t PasswdMgr::genRandom()  // Random string generator function.
+{
+   //salt alphabet
+   static const char alphanum[] =
+   "0123456789"
+   "!@#$%^&*"
+   "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+   "abcdefghijklmnopqrstuvwxyz";
+   
+   int stringLength = sizeof(alphanum) - 1;
+   //random char generation
+   return alphanum[rand() % stringLength];
+}
+
+void PasswdMgr::generateSalt(std::vector<uint8_t> &in_salt) {
+
+   //Populate vector with 16 random alphanumber characters
+   srand(time(0));
+    for(int z=0; z < saltlen; z++)
+    {
+        in_salt.push_back(genRandom());
+    }
+
+}
+
+
 

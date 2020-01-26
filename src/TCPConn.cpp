@@ -6,9 +6,13 @@
 #include <iostream>
 #include "TCPConn.h"
 #include "strfuncts.h"
+#include "PasswdMgr.h"
 
 // The filename/path of the password file
 const char pwdfilename[] = "passwd";
+
+//Need to make a PasswdMgr to handle your username/password functions
+PasswdMgr pwdMgr(pwdfilename);
 
 TCPConn::TCPConn(){ // LogMgr &server_log):_server_log(server_log) {
 
@@ -59,10 +63,11 @@ int TCPConn::sendText(const char *msg, int size) {
 
 void TCPConn::startAuthentication() {
 
-   // Skipping this for now
+   //Sets status of connection to username
    _status = s_username;
 
    _connfd.writeFD("Username: "); 
+
 }
 
 /**********************************************************************************************
@@ -120,6 +125,23 @@ void TCPConn::handleConnection() {
 
 void TCPConn::getUsername() {
    // Insert your mind-blowing code here
+   if (!_connfd.hasData())
+      return;
+   std::string username;
+   //username should be populated with user input?
+   if (!getUserInput(username))
+      return;
+   //Check username list for username entered
+      std::vector<uint8_t> hash, salt;
+      if (pwdMgr.checkUser(username.c_str())) {
+         _status = s_passwd;
+         _username = username;
+      }
+      //No matching password
+      else {
+         _connfd.writeFD("Invalid Password, disconnecting...");
+         disconnect();
+      }
 }
 
 /**********************************************************************************************
@@ -132,6 +154,9 @@ void TCPConn::getUsername() {
 
 void TCPConn::getPasswd() {
    // Insert your astounding code here
+   _connfd.writeFD("Password: ");
+   _status = s_menu;
+   sendMenu();
 }
 
 /**********************************************************************************************

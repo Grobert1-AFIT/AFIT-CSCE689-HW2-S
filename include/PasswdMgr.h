@@ -28,6 +28,8 @@ class PasswdMgr {
       bool findUser(const char *name, std::vector<uint8_t> &hash, std::vector<uint8_t> &salt);
       bool readUser(FileFD &pwfile, std::string &name, std::vector<uint8_t> &hash, std::vector<uint8_t> &salt);
       int writeUser(FileFD &pwfile, std::string &name, std::vector<uint8_t> &hash, std::vector<uint8_t> &salt);
+      void generateSalt(std::vector<uint8_t> &size);
+      uint8_t genRandom();
 
       std::string _pwd_file;
 };

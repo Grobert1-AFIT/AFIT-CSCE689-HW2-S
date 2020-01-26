@@ -11,6 +11,8 @@
 #include <memory>
 #include <sstream>
 #include "TCPServer.h"
+#include <fstream>
+#include <algorithm>
 
 TCPServer::TCPServer(){ // :_server_log("server.log", 0) {
 }
@@ -38,7 +40,23 @@ void TCPServer::bindSvr(const char *ip_addr, short unsigned int port) {
 
    // Load the socket information to prep for binding
    _sockfd.bindFD(ip_addr, port);
- 
+
+   //Populate whitelist for incoming connections
+   std::ifstream wlFile;
+   std::string line;
+
+   wlFile.open("whitelist");
+   if (!wlFile) {
+      std::cout << "Unable to read Whitelist file\n";
+   }
+   else {
+      while (getline(wlFile, line)) {
+         //add line to the vector
+         whiteList.push_back(line);
+      }
+   }
+   wlFile.close();
+
 }
 
 /**********************************************************************************************
@@ -73,17 +91,25 @@ void TCPServer::listenSvr() {
          }
          std::cout << "***Got a connection***\n";
 
-         _connlist.push_back(std::unique_ptr<TCPConn>(new_conn));
-
-         // Get their IP Address string to use in logging
+         // Get their IP Address string to use in logging and check if they are on the White-List
          std::string ipaddr_str;
          new_conn->getIPAddrStr(ipaddr_str);
 
+         //Connection IP Matches WhiteList do the normal stuff
+         if (std::find(whiteList.begin(), whiteList.end(), ipaddr_str) != whiteList.end()) {
 
-         new_conn->sendText("Welcome to the CSCE 689 Server!\n");
+            _connlist.push_back(std::unique_ptr<TCPConn>(new_conn));
 
-         // Change this later
-         new_conn->startAuthentication();
+            new_conn->sendText("Welcome to the CSCE 689 Server!\n");
+
+            // Change this later
+            new_conn->startAuthentication();
+         }
+         //Unauthorized IP disconnect the connection
+         else {
+            new_conn->sendText("Unauthorized Connection, disconnecting!\n");
+            new_conn->disconnect();
+         }
       }
 
       // Loop through our connections, handling them

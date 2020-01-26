@@ -6,6 +6,8 @@
 #include "Server.h"
 #include "FileDesc.h"
 #include "TCPConn.h"
+#include <vector>
+#include <iostream>
 
 class TCPServer : public Server 
 {
@@ -23,6 +25,10 @@ private:
  
    // List of TCPConn objects to manage connections
    std::list<std::unique_ptr<TCPConn>> _connlist;
+
+    
+   //Array of White-List IPs stored as strings?
+   std::vector<std::string> whiteList;
 
 };
 
