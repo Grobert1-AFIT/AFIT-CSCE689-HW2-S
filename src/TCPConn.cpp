@@ -136,10 +136,11 @@ void TCPConn::getUsername() {
       if (pwdMgr.checkUser(username.c_str())) {
          _status = s_passwd;
          _username = username;
+         _connfd.writeFD("Password: ");
       }
-      //No matching password
+      //No matching username
       else {
-         _connfd.writeFD("Invalid Password, disconnecting...");
+         _connfd.writeFD("Invalid Username, disconnecting...");
          disconnect();
       }
 }
@@ -154,9 +155,24 @@ void TCPConn::getUsername() {
 
 void TCPConn::getPasswd() {
    // Insert your astounding code here
-   _connfd.writeFD("Password: ");
-   _status = s_menu;
-   sendMenu();
+   if (!_connfd.hasData())
+      return;
+   std::string password;
+   int attempts = 0;
+   while (attempts < max_attempts) {
+      if (!getUserInput(password))
+         return;
+      if (pwdMgr.checkPasswd(_username.c_str(), password.c_str())) {
+            _status = s_menu;
+            sendMenu();
+      }
+      else { attempts += 1; _connfd.writeFD("Incorrect Password try again.\n"); }
+   }
+   if (attempts = max_attempts) {
+      _connfd.writeFD("Too many unsuccessful attempts, disconnecting...");
+      _connfd.closeFD();
+   }
+
 }
 
 /**********************************************************************************************

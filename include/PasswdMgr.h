@@ -32,6 +32,7 @@ class PasswdMgr {
       uint8_t genRandom();
 
       std::string _pwd_file;
+      std::string out_text;
 };
 
 #endif

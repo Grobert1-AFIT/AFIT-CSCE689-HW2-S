@@ -11,6 +11,7 @@
 #include <random>
 #include <cstdlib>
 #include <ctime>
+#include <array>
 
 const int hashlen = 32;
 const int saltlen = 16;
@@ -150,7 +151,7 @@ int PasswdMgr::writeUser(FileFD &pwfile, std::string &name, std::vector<uint8_t>
    pwfile.writeFD("\n");
    results += 1;
 
-   return results; 
+   return results;
 }
 
 /*****************************************************************************************************
@@ -212,15 +213,17 @@ void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> 
 
     uint8_t *passwd = (uint8_t *)strdup(in_passwd);
     uint32_t pwdlen = strlen((char *)passwd);
+    std::array<uint8_t,hashlen> hash1;
 
     uint32_t t_cost = 2;            // 1-pass computation
     uint32_t m_cost = (1<<16);      // 64 mebibytes memory usage
     uint32_t parallelism = 1;       // number of threads and lanes
 
     // high-level API
-    argon2i_hash_raw(t_cost, m_cost, parallelism, passwd, pwdlen, in_salt, saltlen, &ret_hash, hashlen);
-    free(passwd);
-
+    argon2i_hash_raw(t_cost, m_cost, parallelism, passwd, pwdlen, in_salt, saltlen, hash1.data(), hashlen);
+   for (auto i = hash1.begin(); i != hash1.end(); ++i) {
+      ret_hash.push_back(*i);
+   }
 }
 
 /****************************************************************************************************
@@ -232,7 +235,7 @@ void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> 
 
 void PasswdMgr::addUser(const char *name, const char *passwd) {
    //Need to generate an entry in the passwd file using a randomly generated 16byte hash and the provided username/passwd
-   std::vector<uint8_t> passhash; // hash derived from the parameter passwd
+   std::vector<uint8_t> passhash; // buffer to store the new hash
    std::vector<uint8_t> salt;
 
    //Generate Salt
@@ -243,13 +246,11 @@ void PasswdMgr::addUser(const char *name, const char *passwd) {
 
    //Open the password file
    FileFD pwfile(_pwd_file.c_str());
-   if (!pwfile.openFile(FileFD::readfd))
-      throw pwfile_error("Could not open passwd file for reading");
+   if (!pwfile.openFile(FileFD::appendfd))
+      throw pwfile_error("Could not open passwd file for writing");
 
    //Call writeUser function to write new entry to the openfile
    std::string stringName = name;
-   for (auto i = passhash.begin(); i != passhash.end(); ++i)
-      std::cout << *i;
    writeUser(pwfile, stringName, passhash, salt);
 
 }
