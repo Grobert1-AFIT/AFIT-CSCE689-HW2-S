@@ -55,16 +55,18 @@ bool PasswdMgr::checkUser(const char *name) {
  *******************************************************************************************/
 
 bool PasswdMgr::checkPasswd(const char *name, const char *passwd) {
-   std::vector<uint8_t> userhash; // hash from the password file
-   std::vector<uint8_t> passhash; // hash derived from the parameter passwd
-   std::vector<uint8_t> salt;
+   std::vector<uint8_t> userhash; // hash read from the password file
+   std::vector<uint8_t> passhash; // new hash to be generated from entered passwrd
+   std::vector<uint8_t> salt; //salt read from the password file
 
-   // Check if the user exists and get the passwd string
+   // Check if the user exists and get the hashed password / salt
    if (!findUser(name, userhash, salt))
       return false;
 
+   //Hash the entered password using the salt
    hashArgon2(passhash, salt, passwd, &salt);
 
+   //Compare the two hash values
    if (userhash == passhash)
       return true;
 
@@ -107,6 +109,7 @@ bool PasswdMgr::changePasswd(const char *name, const char *passwd) {
 
 bool PasswdMgr::readUser(FileFD &pwfile, std::string &name, std::vector<uint8_t> &hash, std::vector<uint8_t> &salt)
 {
+   std::vector<uint8_t> newline;
    ssize_t eof_check;
    //Readline from the pwfile and write the value into the &name variable
    //Should return 0 if it read EOF
@@ -115,6 +118,7 @@ bool PasswdMgr::readUser(FileFD &pwfile, std::string &name, std::vector<uint8_t>
    }
    pwfile.readBytes(hash, hashlen);
    pwfile.readBytes(salt, saltlen);
+   pwfile.readBytes(newline, 1);
    return true;
 }
 
@@ -210,17 +214,19 @@ bool PasswdMgr::findUser(const char *name, std::vector<uint8_t> &hash, std::vect
 void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> &ret_salt, 
                            const char *in_passwd, std::vector<uint8_t> *in_salt) {
    // Hash those passwords!!!!
-
-    uint8_t *passwd = (uint8_t *)strdup(in_passwd);
-    uint32_t pwdlen = strlen((char *)passwd);
+    uint32_t pwdlen = sizeof(in_passwd);
     std::array<uint8_t,hashlen> hash1;
+    std::array<uint8_t,saltlen> salt;
 
     uint32_t t_cost = 2;            // 1-pass computation
     uint32_t m_cost = (1<<16);      // 64 mebibytes memory usage
     uint32_t parallelism = 1;       // number of threads and lanes
 
+   for (int i = 0; i < saltlen; i++) {
+      salt[i] = ret_salt[i];
+   }
     // high-level API
-    argon2i_hash_raw(t_cost, m_cost, parallelism, passwd, pwdlen, in_salt, saltlen, hash1.data(), hashlen);
+   argon2i_hash_raw(t_cost, m_cost, parallelism, in_passwd, pwdlen, salt.data(), saltlen, hash1.data(), hashlen);
    for (auto i = hash1.begin(); i != hash1.end(); ++i) {
       ret_hash.push_back(*i);
    }
@@ -236,7 +242,7 @@ void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> 
 void PasswdMgr::addUser(const char *name, const char *passwd) {
    //Need to generate an entry in the passwd file using a randomly generated 16byte hash and the provided username/passwd
    std::vector<uint8_t> passhash; // buffer to store the new hash
-   std::vector<uint8_t> salt;
+   std::vector<uint8_t> salt; //buffer to store the new salt
 
    //Generate Salt
    generateSalt(salt);

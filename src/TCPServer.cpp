@@ -14,7 +14,8 @@
 #include <fstream>
 #include <algorithm>
 
-TCPServer::TCPServer(){ // :_server_log("server.log", 0) {
+TCPServer::TCPServer(){ 
+   //logFile = "server.log";
 }
 
 
@@ -33,7 +34,7 @@ void TCPServer::bindSvr(const char *ip_addr, short unsigned int port) {
 
    struct sockaddr_in servaddr;
 
-   // _server_log.writeLog("Server started.");
+   //logServer.logString("Server started.");
 
    // Set the socket to nonblocking
    _sockfd.setNonBlocking();

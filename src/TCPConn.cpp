@@ -15,7 +15,8 @@ const char pwdfilename[] = "passwd";
 PasswdMgr pwdMgr(pwdfilename);
 
 TCPConn::TCPConn(){ // LogMgr &server_log):_server_log(server_log) {
-
+   //std::shared_ptr<LogSvr> inputServer
+   //logSvr = inputServer;
 }
 
 

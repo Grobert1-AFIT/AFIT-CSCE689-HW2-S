@@ -8,6 +8,8 @@
 #include "TCPConn.h"
 #include <vector>
 #include <iostream>
+#include "LogSvr.h"
+#include <memory>
 
 class TCPServer : public Server 
 {
@@ -29,6 +31,8 @@ private:
     
    //Array of White-List IPs stored as strings?
    std::vector<std::string> whiteList;
+   //char* logFile;
+   //std::shared_ptr<LogSvr> logServer;
 
 };
 

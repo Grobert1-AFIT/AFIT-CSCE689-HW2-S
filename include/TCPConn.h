@@ -2,6 +2,7 @@
 #define TCPCONN_H
 
 #include "FileDesc.h"
+#include "LogSvr.h"
 
 const int max_attempts = 2;
 
@@ -10,7 +11,8 @@ const int max_attempts = 2;
 class TCPConn 
 {
 public:
-   TCPConn(/* LogMgr &server_log*/);
+   TCPConn();
+   //std::shared_ptr<LogSvr> inputServer
    ~TCPConn();
 
    bool accept(SocketFD &server);
@@ -52,6 +54,8 @@ private:
    std::string _newpwd; // Used to store user input for changing passwords
 
    int _pwd_attempts = 0;
+
+   std::shared_ptr<LogSvr> logSvr;
 };
 
 
