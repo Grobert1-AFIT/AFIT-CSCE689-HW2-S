@@ -225,6 +225,7 @@ void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> 
    for (int i = 0; i < saltlen; i++) {
       salt[i] = ret_salt[i];
    }
+   
     // high-level API
    argon2i_hash_raw(t_cost, m_cost, parallelism, in_passwd, pwdlen, salt.data(), saltlen, hash1.data(), hashlen);
    for (auto i = hash1.begin(); i != hash1.end(); ++i) {

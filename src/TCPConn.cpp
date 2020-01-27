@@ -166,6 +166,7 @@ void TCPConn::getPasswd() {
       if (pwdMgr.checkPasswd(_username.c_str(), password.c_str())) {
             _status = s_menu;
             sendMenu();
+            break;
       }
       else { attempts += 1; _connfd.writeFD("Incorrect Password try again.\n"); }
    }
