@@ -31,8 +31,7 @@ private:
     
    //Array of White-List IPs stored as strings?
    std::vector<std::string> whiteList;
-   //char* logFile;
-   //std::shared_ptr<LogSvr> logServer;
+   std::shared_ptr<LogSvr> logServer;
 
 };
 

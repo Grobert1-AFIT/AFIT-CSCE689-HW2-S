@@ -8,14 +8,17 @@
 #include <memory>
 #include <sstream>
 #include <fstream>
+#include <chrono>
 
 class LogSvr {
     public:
-        LogSvr(char *logname);
+        LogSvr(const char* logname);
         ~LogSvr();
-        void logString(char* log);
+        void logString(std::string log);
+        std::string CurrentDate();
 
     private:
-        std::fstream logfile;
+        std::ofstream logfile;
+        std::string logLocation;
 
 };

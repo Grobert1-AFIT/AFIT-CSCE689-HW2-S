@@ -12,11 +12,9 @@
 const char pwdfilename[] = "passwd";
 
 //Need to make a PasswdMgr to handle your username/password functions
-PasswdMgr pwdMgr(pwdfilename);
 
-TCPConn::TCPConn(){ // LogMgr &server_log):_server_log(server_log) {
-   //std::shared_ptr<LogSvr> inputServer
-   //logSvr = inputServer;
+TCPConn::TCPConn(std::shared_ptr<LogSvr> inputServer):pwdMgr(pwdfilename) { // LogMgr &server_log):_server_log(server_log) {
+   logServer = inputServer;
 }
 
 
@@ -125,13 +123,17 @@ void TCPConn::handleConnection() {
  **********************************************************************************************/
 
 void TCPConn::getUsername() {
-   // Insert your mind-blowing code here
+   //Wait for user data to continue
    if (!_connfd.hasData())
       return;
    std::string username;
-   //username should be populated with user input?
+
+
+   //username should be populated with user input
    if (!getUserInput(username))
       return;
+
+
    //Check username list for username entered
       std::vector<uint8_t> hash, salt;
       if (pwdMgr.checkUser(username.c_str())) {
@@ -143,6 +145,12 @@ void TCPConn::getUsername() {
       else {
          _connfd.writeFD("Invalid Username, disconnecting...");
          disconnect();
+
+         //Log the event
+         std::string ip;
+         _connfd.getIPAddrStr(ip);
+         logServer->logString("Invalid username entered - " + username + " from " + ip + " @ " );
+
       }
 }
 
@@ -155,26 +163,51 @@ void TCPConn::getUsername() {
  **********************************************************************************************/
 
 void TCPConn::getPasswd() {
-   // Insert your astounding code here
+   //Wait on user input
    if (!_connfd.hasData())
       return;
+
+
    std::string password;
+   bool authenticated = false;
    int attempts = 0;
-   while (attempts < max_attempts) {
+
+
+   while (!authenticated) {
+      //Read the password from client
       if (!getUserInput(password))
          return;
-      if (pwdMgr.checkPasswd(_username.c_str(), password.c_str())) {
-            _status = s_menu;
-            sendMenu();
-            break;
-      }
-      else { attempts += 1; _connfd.writeFD("Incorrect Password try again.\n"); }
-   }
-   if (attempts = max_attempts) {
-      _connfd.writeFD("Too many unsuccessful attempts, disconnecting...");
-      _connfd.closeFD();
-   }
 
+      //Check if the password matches the stored one
+      if (pwdMgr.checkPasswd(_username.c_str(), password.c_str())) {
+         _status = s_menu;
+         sendMenu();
+         authenticated = true;
+         
+         //Log the event
+         std::string ip;
+         _connfd.getIPAddrStr(ip);
+         logServer->logString(_username + " from " + ip + " successfully authenticated @ ");
+      }
+
+      //Incorrect password attempt
+      else { _connfd.writeFD("Incorrect Password try again.\n"); }
+      attempts += 1; 
+
+      //Too many incorrect attempts
+      if (attempts == max_attempts) {
+         _connfd.writeFD("Too many unsuccessful attempts, disconnecting...");
+         _connfd.closeFD();
+
+         //Log the event
+         std::string ip;
+         _connfd.getIPAddrStr(ip);
+         logServer->logString(_username + " from " + ip + " unsuccessfully authenticated @ ");
+
+
+         return;
+      }
+   }
 }
 
 /**********************************************************************************************
@@ -187,7 +220,47 @@ void TCPConn::getPasswd() {
  **********************************************************************************************/
 
 void TCPConn::changePassword() {
-   // Insert your amazing code here
+   //Wait on user input
+   if (!_connfd.hasData())
+      return;
+
+   //switch on status of first password or second
+   switch(_status) {
+
+      //First entry
+      case s_changepwd:
+         //Read the command line for new password
+         if (!getUserInput(_newpwd))
+            return;
+         _status = s_confirmpwd;
+         _connfd.writeFD("Confirm Password: \n");
+         return;
+
+      //Second entry
+      case s_confirmpwd:
+         std::string confirmPwd;
+         if (!getUserInput(confirmPwd))
+            return;
+         if (confirmPwd !=_newpwd) {
+            //Passwords don't match return them to menu
+            _connfd.writeFD("Passwords do not match, aborting...\n");
+            _status = s_menu;
+            sendMenu();
+            _newpwd.clear();
+            return;
+         }
+         else {
+            //Passwords matched, need to record the new password
+            pwdMgr.changePasswd(_username.c_str(), _newpwd.c_str());
+            _status = s_menu;
+            sendMenu();
+            //Clear out the stored password
+            _newpwd.clear();
+         }
+
+   }
+
+
 }
 
 
@@ -308,6 +381,17 @@ void TCPConn::sendMenu() {
  *    Throws: runtime_error for unrecoverable issues
  **********************************************************************************************/
 void TCPConn::disconnect() {
+
+   //Log the event
+   std::string ip;
+   _connfd.getIPAddrStr(ip);
+   if (_username.length() != 0) {
+      logServer->logString(_username + " from " + ip + " successfully authenticated @ ");
+   }
+   //Disconnected before valid username
+   else {
+      logServer->logString("Connection from " + ip + " disconnected @ ");
+   }
    _connfd.closeFD();
 }
 

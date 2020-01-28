@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <array>
+#include <fstream>
 
 const int hashlen = 32;
 const int saltlen = 16;
@@ -67,8 +68,9 @@ bool PasswdMgr::checkPasswd(const char *name, const char *passwd) {
    hashArgon2(passhash, salt, passwd, &salt);
 
    //Compare the two hash values
-   if (userhash == passhash)
+   if (userhash == passhash) {
       return true;
+   }
 
    return false;
 }
@@ -87,8 +89,47 @@ bool PasswdMgr::checkPasswd(const char *name, const char *passwd) {
  *******************************************************************************************/
 
 bool PasswdMgr::changePasswd(const char *name, const char *passwd) {
+   //Need to overwrite the entry in the passwd file using a randomly generated 16byte hash and the provided username/passwd
+   std::vector<uint8_t> passhash; // buffer to store the new hash
+   std::vector<uint8_t> salt; //buffer to store the new salt
 
-   // Insert your insane code here
+   //Generate Salt
+   generateSalt(salt);
+
+   //Hash the salt + password
+   hashArgon2(passhash, salt, passwd, &salt);
+
+   //Open the password file
+   std::fstream pwfile(_pwd_file, std::ios::out | std::ios::in | std::ios::binary);
+   if (!pwfile)
+      throw pwfile_error("Could not open passwd file for reading");
+
+   //move to the proper location
+   std::string line;
+   while (line != name) {
+      getline(pwfile, line);
+   }
+
+   //Build the data to write
+   uint8_t test[hashlen];
+   uint8_t outSalt[saltlen];
+   
+   int p = 0;
+   for (auto i = passhash.begin(); i != passhash.end(); ++i) {
+      test[p] = *i;
+      p++;
+   }
+
+   p = 0;
+   for (auto i = salt.begin(); i != salt.end(); ++i) {
+      outSalt[p] = *i;
+      p++;
+   }
+
+   //Overwrite the hash and salt
+   pwfile.write((char*) test, hashlen);
+   pwfile.write((char*) outSalt, saltlen);
+   pwfile.write("\n", 1);
 
    return true;
 }
@@ -109,7 +150,7 @@ bool PasswdMgr::changePasswd(const char *name, const char *passwd) {
 
 bool PasswdMgr::readUser(FileFD &pwfile, std::string &name, std::vector<uint8_t> &hash, std::vector<uint8_t> &salt)
 {
-   std::vector<uint8_t> newline;
+   unsigned char newline;
    ssize_t eof_check;
    //Readline from the pwfile and write the value into the &name variable
    //Should return 0 if it read EOF
@@ -118,7 +159,7 @@ bool PasswdMgr::readUser(FileFD &pwfile, std::string &name, std::vector<uint8_t>
    }
    pwfile.readBytes(hash, hashlen);
    pwfile.readBytes(salt, saltlen);
-   pwfile.readBytes(newline, 1);
+   pwfile.readByte(newline);
    return true;
 }
 
@@ -215,8 +256,8 @@ void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> 
                            const char *in_passwd, std::vector<uint8_t> *in_salt) {
    // Hash those passwords!!!!
     uint32_t pwdlen = sizeof(in_passwd);
-    std::array<uint8_t,hashlen> hash1;
-    std::array<uint8_t,saltlen> salt;
+    uint8_t hash[hashlen];
+    uint8_t salt[saltlen];
 
     uint32_t t_cost = 2;            // 1-pass computation
     uint32_t m_cost = (1<<16);      // 64 mebibytes memory usage
@@ -225,11 +266,11 @@ void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> 
    for (int i = 0; i < saltlen; i++) {
       salt[i] = ret_salt[i];
    }
-   
+
     // high-level API
-   argon2i_hash_raw(t_cost, m_cost, parallelism, in_passwd, pwdlen, salt.data(), saltlen, hash1.data(), hashlen);
-   for (auto i = hash1.begin(); i != hash1.end(); ++i) {
-      ret_hash.push_back(*i);
+   argon2i_hash_raw(t_cost, m_cost, parallelism, in_passwd, pwdlen, salt, saltlen, hash, hashlen);
+   for (int i = 0; i < hashlen; i++) {
+      ret_hash.push_back(hash[i]);
    }
 }
 

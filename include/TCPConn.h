@@ -3,6 +3,7 @@
 
 #include "FileDesc.h"
 #include "LogSvr.h"
+#include "PasswdMgr.h"
 
 const int max_attempts = 2;
 
@@ -11,8 +12,7 @@ const int max_attempts = 2;
 class TCPConn 
 {
 public:
-   TCPConn();
-   //std::shared_ptr<LogSvr> inputServer
+   TCPConn(std::shared_ptr<LogSvr> inputServer);
    ~TCPConn();
 
    bool accept(SocketFD &server);
@@ -55,7 +55,9 @@ private:
 
    int _pwd_attempts = 0;
 
-   std::shared_ptr<LogSvr> logSvr;
+   std::shared_ptr<LogSvr> logServer;
+
+   PasswdMgr pwdMgr;
 };
 
 

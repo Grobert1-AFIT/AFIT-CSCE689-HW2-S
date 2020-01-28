@@ -15,7 +15,7 @@
 #include <algorithm>
 
 TCPServer::TCPServer(){ 
-   //logFile = "server.log";
+   logServer = std::make_shared<LogSvr>("server.log");
 }
 
 
@@ -34,7 +34,7 @@ void TCPServer::bindSvr(const char *ip_addr, short unsigned int port) {
 
    struct sockaddr_in servaddr;
 
-   //logServer.logString("Server started.");
+   logServer->logString("Server started @ ");
 
    // Set the socket to nonblocking
    _sockfd.setNonBlocking();
@@ -85,7 +85,7 @@ void TCPServer::listenSvr() {
       socklen_t len = sizeof(cliaddr);
 
       if (_sockfd.hasData()) {
-         TCPConn *new_conn = new TCPConn();
+         TCPConn *new_conn = new TCPConn(logServer);
          if (!new_conn->accept(_sockfd)) {
             // _server_log.strerrLog("Data received on socket but failed to accept.");
             continue;
@@ -103,6 +103,9 @@ void TCPServer::listenSvr() {
 
             new_conn->sendText("Welcome to the CSCE 689 Server!\n");
 
+            //Log the event
+            logServer->logString("Connection from " + ipaddr_str + "@ ");
+
             // Change this later
             new_conn->startAuthentication();
          }
@@ -110,6 +113,9 @@ void TCPServer::listenSvr() {
          else {
             new_conn->sendText("Unauthorized Connection, disconnecting!\n");
             new_conn->disconnect();
+            //Log the event
+            logServer->logString("Unauthorized connection attempt from" + ipaddr_str + "@ ");
+
          }
       }
 
