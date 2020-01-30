@@ -233,7 +233,7 @@ void TCPConn::changePassword() {
          if (!getUserInput(_newpwd))
             return;
          _status = s_confirmpwd;
-         _connfd.writeFD("Confirm Password: \n");
+         _connfd.writeFD("Confirm Password: ");
          return;
 
       //Second entry
@@ -386,7 +386,7 @@ void TCPConn::disconnect() {
    std::string ip;
    _connfd.getIPAddrStr(ip);
    if (_username.length() != 0) {
-      logServer->logString(_username + " from " + ip + " successfully authenticated @ ");
+      logServer->logString(_username + " from " + ip + " disconnected @ ");
    }
    //Disconnected before valid username
    else {

@@ -131,6 +131,9 @@ bool PasswdMgr::changePasswd(const char *name, const char *passwd) {
    pwfile.write((char*) outSalt, saltlen);
    pwfile.write("\n", 1);
 
+   //Close the file after writing
+   pwfile.close();
+
    return true;
 }
 
@@ -157,9 +160,9 @@ bool PasswdMgr::readUser(FileFD &pwfile, std::string &name, std::vector<uint8_t>
    if (!pwfile.readStr(name)) {
       return false;
    }
-   pwfile.readBytes(hash, hashlen);
-   pwfile.readBytes(salt, saltlen);
-   pwfile.readByte(newline);
+   if (pwfile.readBytes(hash, hashlen) < 0) { return false; }
+   if (pwfile.readBytes(salt, saltlen) < 0) { return false; }
+   if (pwfile.readByte(newline) < 0 ) { return false; }
    return true;
 }
 
@@ -183,14 +186,14 @@ int PasswdMgr::writeUser(FileFD &pwfile, std::string &name, std::vector<uint8_t>
    //Append a newline and write the name to the file
    name += '\n';
    pwfile.writeFD(name);
-   results += sizeof(name);
+   results += name.length();
 
    //Write the hash and salt to the file
    pwfile.writeBytes<uint8_t>(hash);
-   results += sizeof(hash);
+   results += hash.size();
    
    pwfile.writeBytes<uint8_t>(salt);
-   results += sizeof(salt);
+   results += salt.size();
 
    //Add a terminating newline
    pwfile.writeFD("\n");
@@ -255,7 +258,7 @@ bool PasswdMgr::findUser(const char *name, std::vector<uint8_t> &hash, std::vect
 void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> &ret_salt, 
                            const char *in_passwd, std::vector<uint8_t> *in_salt) {
    // Hash those passwords!!!!
-    uint32_t pwdlen = sizeof(in_passwd);
+    uint32_t pwdlen = strlen(in_passwd);
     uint8_t hash[hashlen];
     uint8_t salt[saltlen];
 
@@ -269,6 +272,8 @@ void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> 
 
     // high-level API
    argon2i_hash_raw(t_cost, m_cost, parallelism, in_passwd, pwdlen, salt, saltlen, hash, hashlen);
+
+   //populate the return hash vector
    for (int i = 0; i < hashlen; i++) {
       ret_hash.push_back(hash[i]);
    }
@@ -299,7 +304,9 @@ void PasswdMgr::addUser(const char *name, const char *passwd) {
 
    //Call writeUser function to write new entry to the openfile
    std::string stringName = name;
-   writeUser(pwfile, stringName, passhash, salt);
+   if (!writeUser(pwfile, stringName, passhash, salt)) {
+      throw pwfile_error("Could not add user");
+   }
 
 }
 
